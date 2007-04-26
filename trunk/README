@@ -1,0 +1,13 @@
+To install, grab a copy of the mysql source code and run this:
+sh config/bootstrap
+./configure --with-mysql=/home/brian/mysql-5.1/ --libdir=/usr/local/lib/mysql/
+make install
+
+And then inside of MySQL:
+
+mysql> INSTALL PLUGIN filesystem SONAME 'libfilesystem_engine.so';
+
+mysql> CREATE TABLE `d` (`a` varchar(125), b text, primary key(a)) ENGINE=filesystem CONNECTION="/proc/loadavg";
+Query OK, 0 rows affected (0.01 sec)
+
+This is currently supported only on linux (patches welcome!)

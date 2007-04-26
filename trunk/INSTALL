@@ -1,0 +1,4 @@
+Read the README file.
+
+You can optionally copy the "src" directory into storage/ in the MySQL
+server source and things should compile.

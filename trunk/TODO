@@ -1,0 +1,3 @@
+* support columns (space separated, csv, colon sep, etc)
+* support tagged file formats like /proc/meminfo
+* support headered file formats like /proc/partitions
