@@ -90,8 +90,10 @@
 #define MYSQL_SERVER 1
 #include "mysql_priv.h"
 #include "ha_filesystem.h"
-#include "linereader.h"
 #include <mysql/plugin.h>
+
+#include "linereader.h"
+#include "formatinfo.h"
 
 static handler *filesystem_create_handler(handlerton *hton,
 					  TABLE_SHARE *table, 
@@ -167,7 +169,7 @@ static FILESYSTEM_SHARE *get_share(const char *table_name,
 {
   FILESYSTEM_SHARE *share;
   uint length;
-  char *tmp_name, *tmp_fspath;
+  char *tmp_name;
 
   pthread_mutex_lock(&filesystem_mutex);
   length=(uint) strlen(table_name);
@@ -180,7 +182,6 @@ static FILESYSTEM_SHARE *get_share(const char *table_name,
           my_multi_malloc(MYF(MY_WME | MY_ZEROFILL),
                           &share, sizeof(*share),
                           &tmp_name, length+1,
-			  &tmp_fspath, strlen(table->s->connect_string.str) + 1,
                           NullS)))
     {
       pthread_mutex_unlock(&filesystem_mutex);
@@ -193,8 +194,11 @@ static FILESYSTEM_SHARE *get_share(const char *table_name,
     share->table_name=tmp_name;
     strmov(share->table_name,table_name);
 
-    share->filesystem_path = tmp_fspath;
-    strmov(share->filesystem_path, table->s->connect_string.str);
+    share->format_info = new FormatInfo();
+    if (!share->format_info->Parse(table->s->connect_string.str)) {
+      pthread_mutex_unlock(&filesystem_mutex);
+      return NULL;
+    }
 
     if (my_hash_insert(&filesystem_open_tables, (byte*) share))
       goto error;
@@ -228,6 +232,7 @@ static int free_share(FILESYSTEM_SHARE *share)
     hash_delete(&filesystem_open_tables, (byte*) share);
     thr_lock_delete(&share->lock);
     pthread_mutex_destroy(&share->mutex);
+    delete share->format_info;
     my_free((gptr) share, MYF(0));
   }
   pthread_mutex_unlock(&filesystem_mutex);
@@ -236,12 +241,15 @@ static int free_share(FILESYSTEM_SHARE *share)
 }
 
 void
-populate_fields(byte *buf, TABLE *table, const String &line) {
+populate_fields(byte *buf, TABLE *table, FILESYSTEM_SHARE *share, const String &line) {
   int idx = 0;
+
   my_bitmap_map *org_bitmap= dbug_tmp_use_all_columns(table, table->write_set);
 
+  FormatInfo *info = share->format_info;
+
   for (Field **field = table->field; *field; field++) {
-    while (idx < line.length() && my_isspace(system_charset_info, line[idx]))
+    while (idx < line.length() && info->ShouldSkip(system_charset_info, line[idx]))
       ++idx;
 
     /* out of fields?  if so, set null and continue */
@@ -251,12 +259,12 @@ populate_fields(byte *buf, TABLE *table, const String &line) {
     }
 
     int end_idx = idx;
-    while (end_idx < line.length() && !my_isspace(system_charset_info, line[end_idx]))
+    while (end_idx < line.length() && !info->ShouldSkip(system_charset_info, line[end_idx]))
       ++end_idx;
 
     /* last field?  if so, rest of line goes into it*/
     if (!*(field + 1)) {
-      end_idx = line.length() - 1;
+      end_idx = line.length();
     }
 
     (*field)->store(line.ptr() + idx, end_idx - idx, system_charset_info);
@@ -268,14 +276,14 @@ populate_fields(byte *buf, TABLE *table, const String &line) {
 }
 
 static handler* filesystem_create_handler(handlerton *hton,
-                                       TABLE_SHARE *table, 
-                                       MEM_ROOT *mem_root)
+					  TABLE_SHARE *table, 
+					  MEM_ROOT *mem_root)
 {
   return new (mem_root) ha_filesystem(hton, table);
 }
 
 ha_filesystem::ha_filesystem(handlerton *hton, TABLE_SHARE *table_arg)
-  : last_offset(-1), handler(hton, table_arg)
+  : line_reader(NULL), line_number(0), last_offset(-1), handler(hton, table_arg)
 {}
 
 
@@ -323,7 +331,7 @@ int ha_filesystem::open(const char *name, int mode, uint test_if_locked)
   if (!(share = get_share(name, table)))
     DBUG_RETURN(1);
 
-  line_reader = new LineReader(share->filesystem_path);
+  line_reader = new LineReader(share->format_info->Path());
 
   thr_lock_data_init(&share->lock,&lock,NULL);
 
@@ -373,6 +381,7 @@ int ha_filesystem::close(void)
 int ha_filesystem::rnd_init(bool scan)
 {
   DBUG_ENTER("ha_filesystem::rnd_init");
+  line_number = 0;
   DBUG_RETURN(line_reader->Open());
 }
 
@@ -400,17 +409,25 @@ int ha_filesystem::rnd_end()
 int ha_filesystem::rnd_next(byte *buf)
 {
   DBUG_ENTER("ha_filesystem::rnd_next");
+  if (!line_reader->Opened())
+    DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE);
+
   memset(buf, 0, table->s->null_bytes);
 
   if (line_reader->CurrentOffset() == line_reader->LastOffset())
     DBUG_RETURN(HA_ERR_END_OF_FILE);
+
+  while (line_number < share->format_info->SkipLines()) {
+    line_number++;
+    line_reader->Advance();
+  }
 
   String line;
   line_reader->CurrentLine(&line);
   last_offset = line_reader->CurrentOffset();
 
   line_reader->Advance();
-  populate_fields(buf, table, line);
+  populate_fields(buf, table, share, line);
 
   DBUG_RETURN(0);
 }
@@ -461,10 +478,12 @@ void ha_filesystem::position(const byte *record)
 int ha_filesystem::rnd_pos(byte * buf, byte *pos)
 {
   DBUG_ENTER("ha_filesystem::rnd_pos");
+  if (!line_reader->Opened())
+    DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE);
   off_t offset = (off_t)my_get_ptr(pos,ref_length);
   String line;
   line_reader->LineAt(offset, &line);
-  populate_fields(buf, table, line);
+  populate_fields(buf, table, share, line);
   DBUG_RETURN(0);
 }
 
@@ -587,7 +606,7 @@ int ha_filesystem::external_lock(THD *thd, int lock_type)
 */
 
 int ha_filesystem::create(const char *name, TABLE *table_arg,
-                       HA_CREATE_INFO *create_info)
+			  HA_CREATE_INFO *create_info)
 {
   DBUG_ENTER("ha_filesystem::create");
   DBUG_RETURN(0);

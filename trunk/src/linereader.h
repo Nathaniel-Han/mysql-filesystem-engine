@@ -17,6 +17,7 @@ class LineReader {
   ~LineReader() { delete[] buffer_; };
 
   int Open();
+  int Opened() const { return buffer_ != NULL; };
   void Advance();
   void CurrentLine(String *into);
   void LineAt(off_t offset, String *into);

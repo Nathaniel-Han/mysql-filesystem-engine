@@ -13,7 +13,20 @@ And then inside of MySQL:
 
 mysql> INSTALL PLUGIN filesystem SONAME 'libfilesystem_engine.so';
 
-mysql> CREATE TABLE `d` (`a` varchar(125), b text, primary key(a)) ENGINE=filesystem CONNECTION="/proc/loadavg";
-Query OK, 0 rows affected (0.01 sec)
+mysql> CREATE TABLE LoadAverage (
+       load1 DECIMAL(3, 2), 
+       load5 DECIMAL(3, 2), 
+       load15 DECIMAL(3, 2), 
+       active_processes VARCHAR(12), 
+       lastpid INTEGER) ENGINE=FILESYSTEM connection="file:///proc/loadavg";
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> select * from LoadAverage;
++-------+-------+--------+------------------+---------+
+| load1 | load5 | load15 | active_processes | lastpid |
++-------+-------+--------+------------------+---------+
+|  0.00 |  0.00 |   0.00 | 1/97             |    6061 | 
++-------+-------+--------+------------------+---------+
+1 row in set (0.00 sec)
 
 This is currently supported only on linux (patches welcome!)
