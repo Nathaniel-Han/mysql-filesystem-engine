@@ -1,3 +1,9 @@
+WARNING!  This code is VERY preliminary.  It is certainly unsafe.  Please
+do not use in production.  If it breaks, you keep both parts.
+
+Based on the very helpful skeleton example plugin from Brian Aker.
+
+
 To install, grab a copy of the mysql source code and run this:
 sh config/bootstrap
 ./configure --with-mysql=/home/brian/mysql-5.1/ --libdir=/usr/local/lib/mysql/
