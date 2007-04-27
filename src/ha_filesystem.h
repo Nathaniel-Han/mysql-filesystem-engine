@@ -17,7 +17,9 @@
 #pragma interface			/* gcc class implementation */
 #endif
 
-class LineReader; // pre-declare
+/* pre-declare some classes */
+class LineReader; 
+class FormatInfo;
 
 /** @brief
   FILESYSTEM_SHARE is a structure that will be shared among all open handlers.
@@ -25,7 +27,7 @@ class LineReader; // pre-declare
 */
 typedef struct st_filesystem_share {
   char *table_name;
-  char *filesystem_path;
+  FormatInfo *format_info;
   uint table_name_length,use_count;
   pthread_mutex_t mutex;
   THR_LOCK lock;
@@ -40,6 +42,7 @@ class ha_filesystem: public handler
   FILESYSTEM_SHARE *share;    ///< Shared lock info
 
   LineReader *line_reader;
+  int line_number;
   off_t last_offset;
 
 public:

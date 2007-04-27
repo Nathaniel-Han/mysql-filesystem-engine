@@ -6,7 +6,7 @@ int
 LineReader::Open() {
   File f = my_open(path_, O_RDONLY, MYF(0));
   if (f == -1)
-    return -1;
+    return HA_ERR_CRASHED_ON_USAGE;
 
   int buffsize = 65536, cursize = 0;
   byte *file_data = new byte[buffsize];
