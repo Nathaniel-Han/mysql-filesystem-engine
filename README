@@ -29,4 +29,22 @@ mysql> select * from LoadAverage;
 +-------+-------+--------+------------------+---------+
 1 row in set (0.00 sec)
 
+mysql> CREATE TABLE passwd (
+    ->        user varchar(32),
+    ->        password varchar(32),
+    ->        uid integer,
+    ->        gid integer,
+    ->        comment varchar(64),
+    ->        homedir varchar(256),
+    ->        shell varchar(64)) ENGINE=FILESYSTEM CONNECTION="file:///etc/passwd;separator=:";
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> select * from passwd where user = 'chip';
++------+----------+------+------+----------------+-----------------------+-----------+
+| user | password | uid  | gid  | comment        | homedir               | shell     |
++------+----------+------+------+----------------+-----------------------+-----------+
+| chip | x        | 1000 | 1000 | Chip Turner,,, | /export/homedirs/chip | /bin/bash | 
++------+----------+------+------+----------------+-----------------------+-----------+
+1 row in set (0.00 sec)
+
 This is currently supported only on linux (patches welcome!)
