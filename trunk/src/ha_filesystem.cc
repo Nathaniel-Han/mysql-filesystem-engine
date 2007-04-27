@@ -94,8 +94,8 @@
 #include <mysql/plugin.h>
 
 static handler *filesystem_create_handler(handlerton *hton,
-                                       TABLE_SHARE *table, 
-                                       MEM_ROOT *mem_root);
+					  TABLE_SHARE *table, 
+					  MEM_ROOT *mem_root);
 
 handlerton *filesystem_hton;
 
@@ -233,6 +233,38 @@ static int free_share(FILESYSTEM_SHARE *share)
   pthread_mutex_unlock(&filesystem_mutex);
 
   return 0;
+}
+
+void
+populate_fields(byte *buf, TABLE *table, const String &line) {
+  int idx = 0;
+  my_bitmap_map *org_bitmap= dbug_tmp_use_all_columns(table, table->write_set);
+
+  for (Field **field = table->field; *field; field++) {
+    while (idx < line.length() && my_isspace(system_charset_info, line[idx]))
+      ++idx;
+
+    /* out of fields?  if so, set null and continue */
+    if (idx >= line.length()) {
+      (*field)->set_null();
+      continue;
+    }
+
+    int end_idx = idx;
+    while (end_idx < line.length() && !my_isspace(system_charset_info, line[end_idx]))
+      ++end_idx;
+
+    /* last field?  if so, rest of line goes into it*/
+    if (!*(field + 1)) {
+      end_idx = line.length() - 1;
+    }
+
+    (*field)->store(line.ptr() + idx, end_idx - idx, system_charset_info);
+
+    idx = end_idx + 1;
+  }
+
+  dbug_tmp_restore_column_map(table->write_set, org_bitmap);
 }
 
 static handler* filesystem_create_handler(handlerton *hton,
@@ -378,11 +410,7 @@ int ha_filesystem::rnd_next(byte *buf)
   last_offset = line_reader->CurrentOffset();
 
   line_reader->Advance();
-  Field *first_field = table->field[0];
-  my_bitmap_map *org_bitmap= dbug_tmp_use_all_columns(table, table->write_set);
-  if (bitmap_is_set(table->read_set, first_field->field_index))
-    first_field->store(line.ptr(), line.length(), system_charset_info);
-  dbug_tmp_restore_column_map(table->write_set, org_bitmap);
+  populate_fields(buf, table, line);
 
   DBUG_RETURN(0);
 }
@@ -436,11 +464,7 @@ int ha_filesystem::rnd_pos(byte * buf, byte *pos)
   off_t offset = (off_t)my_get_ptr(pos,ref_length);
   String line;
   line_reader->LineAt(offset, &line);
-  Field *first_field = table->field[0];
-  my_bitmap_map *org_bitmap= dbug_tmp_use_all_columns(table, table->write_set);
-  if (bitmap_is_set(table->read_set, first_field->field_index))
-    first_field->store(line.ptr(), line.length(), system_charset_info);
-  dbug_tmp_restore_column_map(table->write_set, org_bitmap);
+  populate_fields(buf, table, line);
   DBUG_RETURN(0);
 }
 

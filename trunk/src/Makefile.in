@@ -56,7 +56,7 @@ am__installdirs = "$(DESTDIR)$(libdir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libfilesystem_engine_la_LIBADD =
-am_libfilesystem_engine_la_OBJECTS = ha_filesystem.lo
+am_libfilesystem_engine_la_OBJECTS = ha_filesystem.lo linereader.lo
 libfilesystem_engine_la_OBJECTS =  \
 	$(am_libfilesystem_engine_la_OBJECTS)
 libfilesystem_engine_la_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
@@ -191,11 +191,11 @@ EXTRA_DIST = ha_filesystem.h linereader.h linereader.cc
 
 # By default we are set to compile with debug
 #INCLUDES =  -DMYSQL_DYNAMIC_PLUGIN  -DUNIV_MUST_NOT_INLINE -DFORCE_INIT_OF_VARS $(MYSQL_INC)
-INCLUDES = -DMYSQL_DYNAMIC_PLUGIN  -DDBUG_ON -DSAFE_MUTEX -DUNIV_MUST_NOT_INLINE -DEXTRA_DEBUG -DFORCE_INIT_OF_VARS -DSAFEMALLOC -DPEDANTIC_SAFEMALLOC -DSAFE_MUTEX $(MYSQL_INC)
+INCLUDES = -DMYSQL_DYNAMIC_PLUGIN  -DDBUG_ON -DSAFE_MUTEX -DUNIV_MUST_NOT_INLINE -DEXTRA_DEBUG -DFORCE_INIT_OF_VARS -DSAFE_MUTEX $(MYSQL_INC)
 LDADD = 
 noinst_HEADERS = ha_filesystem.h
 lib_LTLIBRARIES = libfilesystem_engine.la
-libfilesystem_engine_la_SOURCES = ha_filesystem.cc
+libfilesystem_engine_la_SOURCES = ha_filesystem.cc linereader.cc
 libfilesystem_engine_la_LDFLAGS = -module
 all: all-am
 
@@ -267,6 +267,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ha_filesystem.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linereader.Plo@am__quote@
 
 .cc.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
