@@ -1,7 +1,0 @@
-#summary Overview of this project.
-
-= Overview =
-
-This is a project for the MySQL Filesystem storage engine.  It translates normal files on your server into relational tables inside of MySQL.  It is a very alpha project at the moment, but works for basic usage.  You can see details of installing it and using it here:
-
-http://mysql-filesystem-engine.googlecode.com/svn/trunk/README
