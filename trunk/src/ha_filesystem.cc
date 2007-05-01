@@ -333,6 +333,7 @@ int ha_filesystem::open(const char *name, int mode, uint test_if_locked)
 
   line_reader = new LineReader(share->format_info->Path());
 
+  ref_length = sizeof(off_t);
   thr_lock_data_init(&share->lock,&lock,NULL);
 
   DBUG_RETURN(0);

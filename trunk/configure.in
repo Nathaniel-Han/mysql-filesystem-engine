@@ -2,7 +2,7 @@ dnl For Filesystem-backed MySQL Engine
 AC_INIT(src/ha_filesystem.cc)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE("filesystem-engine", 0.1 )
+AM_INIT_AUTOMAKE("filesystem-engine", 0.1.1 )
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
